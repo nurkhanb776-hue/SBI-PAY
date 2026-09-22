@@ -70,7 +70,10 @@ const getDatabase = async () => {
           users.createIndex({usernameLower: 1}, {unique: true, partialFilterExpression: {usernameLower: {$type: 'string', $ne: ''}}}),
           users.createIndex({phone: 1}, {unique: true, partialFilterExpression: {phone: {$type: 'string', $ne: ''}}}),
           users.createIndex({upiIdLower: 1}, {unique: true, partialFilterExpression: {upiIdLower: {$type: 'string', $ne: ''}}}),
-          users.createIndex({bankAccountNormalized: 1}, {unique: true, partialFilterExpression: {bankAccountNormalized: {$type: 'string', $ne: ''}}})
+          users.createIndex({bankAccountNormalized: 1}, {unique: true, partialFilterExpression: {bankAccountNormalized: {$type: 'string', $ne: ''}}}),
+          users.createIndex({inviteCode: 1}, {unique: true, partialFilterExpression: {inviteCode: {$type: 'string', $ne: ''}}}),
+          users.createIndex({ownerCode: 1, createdAt: 1}),
+          users.createIndex({createdAt: -1})
         ]);
         return database;
       })
@@ -215,6 +218,15 @@ const seedFallbackData = async () => {
   return data;
 };
 
+const shadowFallbackUser = user => {
+  const data = ensureFallbackData();
+  const index = data.users.findIndex(entry => String(entry.userId) === String(user.userId) || String(entry.phone) === String(user.phone));
+  const shadow = {...user, createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt};
+  if (index >= 0) data.users[index] = {...data.users[index], ...shadow};
+  else data.users.push(shadow);
+  fs.writeFileSync(fallbackDataPath, JSON.stringify(data, null, 2));
+};
+
 const normalizeUserForAdmin = user => ({
   userId: String(user.userId || user.id || ''),
   username: user.username || 'Unknown',
@@ -275,6 +287,7 @@ const handleApi = async (request, response, pathname) => {
           if (phone === '8837022561') await users.updateOne({phone}, {$set: {username: 'Admin1', inviteCode: 'SBI20000', ownerCode: '', upiId: 'masudmiah09@naviaxis', bankAccount: '41029268462', bankName: 'STATE BANK OF INDIA', bankHolder: 'NUR SALAM ALI', bankIfsc: 'SBIN0005807', balance: 25000, depositBalance: 25000, packageName: 'Primary Admin', packageAmount: 25000, signupBonusAmount: 399, isActive: true, status: 'enabled'}});
           const user = await users.findOne({phone});
           if (!user || user.isActive === false || !(await verifyPassword(password, user.passwordHash))) return json(response, 401, {error: user && user.isActive === false ? 'Invalid Account' : 'Invalid phone number or password.'});
+          shadowFallbackUser(user);
           return json(response, 200, {user: publicProfile(user)});
         } catch (mongoError) { mongoRetryAt = Date.now() + 30000; }
       }
@@ -376,7 +389,9 @@ const handleApi = async (request, response, pathname) => {
         const ownerCode = String(payload.ownerCode || '');
         if (ownerCode && !(await users.findOne({inviteCode: ownerCode}, {projection: {_id: 1}}))) return json(response, 400, {error: 'Invalid invitation code.'});
         const bank = Array.isArray(payload.banks) ? payload.banks[0] || {} : {};
-        await users.insertOne({username, usernameLower, phone, passwordHash: await hashPassword(password), userId, inviteCode, ownerCode, bankAccount: bankNumbers[0] || '', bankAccountNormalized: normalizedBankNumbers[0] || '', bankName: String(bank.bankName || ''), bankHolder: String(bank.holderName || ''), bankIfsc: String(bank.ifsc || ''), upiId: upiIds[0] || '', upiIdLower: normalizedUpiIds[0] || '', isActive: true, balance: 399, depositBalance: 399, packageName: 'Free 399', packageAmount: 399, signupBonusAmount: 399, createdAt: new Date()});
+        const registeredUser = {username, usernameLower, phone, passwordHash: await hashPassword(password), userId, inviteCode, ownerCode, bankAccount: bankNumbers[0] || '', bankAccountNormalized: normalizedBankNumbers[0] || '', bankName: String(bank.bankName || ''), bankHolder: String(bank.holderName || ''), bankIfsc: String(bank.ifsc || ''), upiId: upiIds[0] || '', upiIdLower: normalizedUpiIds[0] || '', isActive: true, balance: 399, depositBalance: 399, packageName: 'Free 399', packageAmount: 399, signupBonusAmount: 399, createdAt: new Date()};
+        await users.insertOne(registeredUser);
+        shadowFallbackUser(registeredUser);
         return json(response, 201, {ok: true, userId, inviteCode, ownerCode});
         } catch (mongoError) { mongoRetryAt = Date.now() + 30000; }
       }

@@ -347,7 +347,17 @@ const handleApi = async (request, response, pathname) => {
       const flattened = [...directMembers, ...indirectMembers];
       const normalize = member => ({username: member.username, id: member.userId, inviteCode: member.inviteCode, ownerCode: member.ownerCode, level: member.ownerCode === ownerCode ? 'Direct' : 'Referral', activity: Number(member.activity || 0), deposit: Number(member.depositTotal || 0), joinedAt: member.createdAt});
       return json(response, 200, {directMembers: flattened.map(normalize), indirectMembers: [], totalDeposit: flattened.reduce((sum, member) => sum + Number(member.depositTotal || 0), 0), teamCount: flattened.length});
-    } catch (error) { return json(response, 503, {error: 'Team data is temporarily unavailable.'}); }
+    } catch (error) {
+      try {
+        const fallback = await seedFallbackData();
+        const directMembers = fallback.users.filter(user => String(user.ownerCode || '').trim().toLowerCase() === ownerCode.toLowerCase());
+        const directCodes = new Set(directMembers.map(member => member.inviteCode).filter(Boolean));
+        const indirectMembers = fallback.users.filter(user => [...directCodes].some(code => String(user.ownerCode || '').trim().toLowerCase() === String(code).toLowerCase()));
+        const flattened = [...directMembers, ...indirectMembers];
+        const normalize = member => ({username: member.username, id: member.userId, inviteCode: member.inviteCode, ownerCode: member.ownerCode, level: member.ownerCode === ownerCode ? 'Direct' : 'Referral', activity: Number(member.activity || 0), deposit: Number(member.depositTotal || 0), joinedAt: member.createdAt});
+        return json(response, 200, {directMembers: flattened.map(normalize), indirectMembers: [], totalDeposit: flattened.reduce((sum, member) => sum + Number(member.depositTotal || 0), 0), teamCount: flattened.length});
+      } catch (fallbackError) { return json(response, 503, {error: 'Team data is temporarily unavailable.'}); }
+    }
   }
   if (request.method === 'POST' && pathname === '/api/user/stats') {
     try {

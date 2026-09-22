@@ -25,11 +25,17 @@ const apiBase = window.location.origin || 'https://sbi-pay.onrender.com';
 const loginForm=document.getElementById('login-form');
 loginForm.addEventListener('submit',async event=>{
 	event.preventDefault();
+	const submitButton=loginForm.querySelector('button[type="submit"]');
 	const phone=loginForm.querySelector('input[type="tel"]').value.replace(/\D/g,'');
 	const password=loginForm.querySelector('input[type="password"]').value;
 	const error=document.getElementById('login-error');
+	if(phone.length<10){error.textContent='Enter a valid mobile number.';return}
+	if(!password){error.textContent='Enter your password.';return}
+	submitButton.disabled=true;submitButton.textContent='Signing in...';error.textContent='';
 	try{
-		const response=await fetch(`${apiBase}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password})});
+		const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);
+		const response=await fetch(`${apiBase}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password}),signal:controller.signal});
+		clearTimeout(timeout);
 		const data=await response.json();
 		if(response.status>=500)throw new Error('Login service is temporarily unavailable.');
 		if(!response.ok){error.textContent=data.error||'Unable to sign in.';return}
@@ -50,7 +56,7 @@ loginForm.addEventListener('submit',async event=>{
 			localStorage.setItem('sbiPayInviteCode',profile.inviteCode);
 			sbiPayAuth.startSession(profile);
 			window.location.href='dashboard.html';
-		}catch(localError){error.textContent=localError.message||'Invalid phone number or password.'}
+		}catch(localError){error.textContent=localError.message||'Invalid phone number or password.';submitButton.disabled=false;submitButton.textContent='Sign In'}
 	}
 });
 </script>

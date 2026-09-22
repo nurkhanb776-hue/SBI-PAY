@@ -25,17 +25,23 @@ const apiBase=window.location.origin||'https://sbi-pay.onrender.com';
 document.getElementById('login-form').addEventListener('submit',async event=>{
 	event.preventDefault();
 	const form=event.currentTarget;
+	const submitButton=form.querySelector('button[type="submit"]');
 	const phone=form.querySelector('input[type="tel"]').value.replace(/\D/g,'');
 	const password=form.querySelector('input[type="password"]').value;
 	const error=document.getElementById('login-error');
+	if(phone.length<10){error.textContent='Enter a valid mobile number.';return}
+	if(!password){error.textContent='Enter your password.';return}
+	submitButton.disabled=true;submitButton.textContent='Signing in...';error.textContent='';
 	try{
-		const response=await fetch(`${apiBase}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password})});
+		const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);
+		const response=await fetch(`${apiBase}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,password}),signal:controller.signal});
+		clearTimeout(timeout);
 		const data=await response.json();
 		if(!response.ok)throw new Error(data.error||'Unable to sign in.');
 		sbiPayAuth.clearSession();sbiPayAuth.startSession(data.user);window.location.href='dashboard.html';
 	}catch(networkError){
 		try{sbiPayAuth.startSession(await sbiPayAuth.localLogin(phone,password));window.location.href='dashboard.html'}
-		catch(localError){error.textContent=localError.message||'Invalid phone number or password.'}
+		catch(localError){error.textContent=localError.message||'Invalid phone number or password.';submitButton.disabled=false;submitButton.textContent='Sign In'}
 	}
 });
 </script>

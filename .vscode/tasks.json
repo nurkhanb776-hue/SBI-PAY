@@ -96,6 +96,98 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Verify final GitHub state",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"git status --short --branch && git remote -v && git log -2 --oneline && git ls-remote --heads origin main"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Validate SBI PAY auth and Mongo config",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const http=require('http'); const request=(path,options={})=>new Promise((resolve,reject)=>{const req=http.request({hostname:'localhost',port:10000,path,...options},res=>{let data='';res.on('data',chunk=>data+=chunk);res.on('end',()=>resolve({status:res.statusCode,body:data}))});req.on('error',reject);if(options.body)req.write(options.body);req.end()});(async()=>{const health=await request('/api/health');console.log('health',health.status,health.body);const body=JSON.stringify({phone:'8837022561',password:'Riya12340'});const login=await request('/api/login',{method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)},body});console.log('login',login.status,JSON.parse(login.body).user?.username||JSON.parse(login.body).error);})().catch(error=>{console.error(error.message);process.exit(1)})"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check auth endpoints",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"curl.exe -sS http://localhost:10000/api/health && echo. && curl.exe -sS -X POST http://localhost:10000/api/login -H \"Content-Type: application/json\" -d \"{\\\"phone\\\":\\\"8837022561\\\",\\\"password\\\":\\\"Riya12340\\\"}\""
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start SBI PAY verification server",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"set PORT=10001&&node server.js"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Mongo fallback and auth",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"curl.exe -sS http://localhost:10001/api/health && echo. && curl.exe -sS -X POST http://localhost:10001/api/login -H \"Content-Type: application/json\" --data-binary \"{\\\"phone\\\":\\\"8837022561\\\",\\\"password\\\":\\\"Riya12340\\\"}\" && echo. && curl.exe -sS -X POST http://localhost:10001/api/register -H \"Content-Type: application/json\" --data-binary \"{\\\"username\\\":\\\"preflight_check_user\\\",\\\"phone\\\":\\\"9998887776\\\",\\\"password\\\":\\\"Test1234\\\",\\\"preflight\\\":true}\""
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run real auth verification",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"verify-auth-temp.js"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check server syntax",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"--check",
+				"server.js"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Commit and push auth fixes",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/d",
+				"/c",
+				"git add -A && git commit -m Fix-auth-and-mongodb-config && git push origin main"
+			],
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

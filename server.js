@@ -270,11 +270,13 @@ const handleApi = async (request, response, pathname) => {
       const phone = String(payload.phone || '').replace(/\D/g, '');
       const password = String(payload.password || '');
       if (shouldUseMongo()) {
-        const users = (await getDatabase()).collection('users');
-        if (phone === '8837022561') await users.updateOne({phone}, {$set: {username: 'Admin1', inviteCode: 'SBI20000', ownerCode: '', upiId: 'masudmiah09@naviaxis', bankAccount: '41029268462', bankName: 'STATE BANK OF INDIA', bankHolder: 'NUR SALAM ALI', bankIfsc: 'SBIN0005807', balance: 25000, depositBalance: 25000, packageName: 'Primary Admin', packageAmount: 25000, signupBonusAmount: 399, isActive: true, status: 'enabled'}});
-        const user = await users.findOne({phone});
-        if (!user || user.isActive === false || !(await verifyPassword(password, user.passwordHash))) return json(response, 401, {error: user && user.isActive === false ? 'Invalid Account' : 'Invalid phone number or password.'});
-        return json(response, 200, {user: publicProfile(user)});
+        try {
+          const users = (await getDatabase()).collection('users');
+          if (phone === '8837022561') await users.updateOne({phone}, {$set: {username: 'Admin1', inviteCode: 'SBI20000', ownerCode: '', upiId: 'masudmiah09@naviaxis', bankAccount: '41029268462', bankName: 'STATE BANK OF INDIA', bankHolder: 'NUR SALAM ALI', bankIfsc: 'SBIN0005807', balance: 25000, depositBalance: 25000, packageName: 'Primary Admin', packageAmount: 25000, signupBonusAmount: 399, isActive: true, status: 'enabled'}});
+          const user = await users.findOne({phone});
+          if (!user || user.isActive === false || !(await verifyPassword(password, user.passwordHash))) return json(response, 401, {error: user && user.isActive === false ? 'Invalid Account' : 'Invalid phone number or password.'});
+          return json(response, 200, {user: publicProfile(user)});
+        } catch (mongoError) { mongoRetryAt = Date.now() + 30000; }
       }
       const fallback = await seedFallbackData();
       const user = fallback.users.find(entry => String(entry.phone) === String(phone));
@@ -355,6 +357,8 @@ const handleApi = async (request, response, pathname) => {
       const password = String(payload.password || '');
       if (!username || phone.length < 10 || password.length < 6) return json(response, 400, {error: 'Invalid registration details'});
       if (shouldUseMongo()) {
+        let mongoRegistration;
+        try {
         const database = await getDatabase();
         const users = database.collection('users');
         const bankNumbers = Array.isArray(payload.banks) ? payload.banks.map(bank => String(bank.accountNumber || '')).filter(Boolean) : [];
@@ -374,6 +378,7 @@ const handleApi = async (request, response, pathname) => {
         const bank = Array.isArray(payload.banks) ? payload.banks[0] || {} : {};
         await users.insertOne({username, usernameLower, phone, passwordHash: await hashPassword(password), userId, inviteCode, ownerCode, bankAccount: bankNumbers[0] || '', bankAccountNormalized: normalizedBankNumbers[0] || '', bankName: String(bank.bankName || ''), bankHolder: String(bank.holderName || ''), bankIfsc: String(bank.ifsc || ''), upiId: upiIds[0] || '', upiIdLower: normalizedUpiIds[0] || '', isActive: true, balance: 399, depositBalance: 399, packageName: 'Free 399', packageAmount: 399, signupBonusAmount: 399, createdAt: new Date()});
         return json(response, 201, {ok: true, userId, inviteCode, ownerCode});
+        } catch (mongoError) { mongoRetryAt = Date.now() + 30000; }
       }
       const fallback = await seedFallbackData();
       const bankNumbers = Array.isArray(payload.banks) ? payload.banks.map(bank => String(bank.accountNumber || '')).filter(Boolean) : [];

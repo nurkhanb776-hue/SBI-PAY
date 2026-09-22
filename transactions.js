@@ -20,7 +20,7 @@
     if(!/login\.html$/i.test(location.pathname))window.location.href='login.html';
     return;
   }
-  document.addEventListener('click',event=>{if(event.target.closest('#confirm-logout')){['sbiPayUsername','sbiPayProfile','sbiPayUserId','sbiPayInviteCode','sbiPaySessionStartedAt'].forEach(key=>localStorage.removeItem(key));for (let index = localStorage.length - 1; index >= 0; index -= 1){const key=localStorage.key(index);if(key&&key.startsWith('sbiPayUser:'))localStorage.removeItem(key);}}});
+  document.addEventListener('click',event=>{if(event.target.closest('#confirm-logout')){try{window.sbiPayAuth.clearSession()}catch(error){['sbiPayUsername','sbiPayProfile','sbiPayUserId','sbiPayInviteCode','sbiPaySessionStartedAt','sbiPaySessionToken','sbiPaySessionExpiry'].forEach(key=>localStorage.removeItem(key))}window.location.replace('login.html')}});
   const storageKey=scopeKey('transactions');
   const seededTransactions=[
     {id:'receive-inr-185324',code:'X6GsNb',type:'INR',currency:'INR',label:'Receive INR',direction:'receive',amount:100,status:'success',date:'2026-09-15T18:35:21'},
